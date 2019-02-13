@@ -17,12 +17,11 @@ library(shiny)
 ## c) Calculate population moments
 ## d) Define the random sample
 ## e) Add output for population mean (has to be added to the conditional panel)
-<<<<<<< HEAD
+
 
 ###############################################################################
 ###############################################################################
-=======
->>>>>>> 9059df86f92aebaf9c208b2b3b8659647d12fe6e
+
 library(ggplot2)
 
 ui <- fluidPage(

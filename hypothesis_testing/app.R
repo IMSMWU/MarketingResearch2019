@@ -16,7 +16,7 @@ ui <- fluidPage(
      
       h3("Null Hypothesis (H0)", style = "color:blue"),
       sliderInput('h0', "Average listening time of WU students is equal to",
-                  min = 0, max = 2, step = 0.01, value = 0.6),
+                  min = 0, max = 2, step = 0.01, value = 0.7),
       sliderInput("ci",
                   "Confidence Interval (in %)",
                   min = 0, max = 100, step = 1, value = 95),
@@ -89,7 +89,7 @@ server <- function(input, output) {
       smean <- as.numeric(mean(dat))
       print(smean)
       plt <- ggplot(data.frame(x = smean)) + 
-        geom_vline(xintercept = smean, color = 'black') +
+        geom_vline(xintercept = smean, color = 'darkgreen') +
         xlim(c(mu-8*se_mean, mu + 8*se_mean)) + 
         stat_function(fun = dnorm, args = list(mu, se_mean), geom = "line", color = "blue") +
         stat_function(fun = dnorm, args = list(mu, se_mean), xlim = c(min, qnorm(p1, mean = mu, sd = se_mean)), geom = "area",

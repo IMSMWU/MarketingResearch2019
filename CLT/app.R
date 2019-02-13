@@ -56,7 +56,7 @@ ui <- fluidPage(
       # Number of samples for visualization of CLT
       h3("CLT", style="color:darkblue"), 
       sliderInput('nsamps', 'Number of Samples', min = 2, 5000, 1000),
-      checkboxInput('overlay', "Re-sample and draw Normal Distribution overlay?"),
+      checkboxInput('overlay', "Draw Normal Distribution overlay?"),
       conditionalPanel('input.overlay',
                        checkboxInput('ci', "Show Confidence Intervals?"),
       conditionalPanel('input.ci',
@@ -93,6 +93,7 @@ server <- function(input, output) {
 
   # d) Get function for random draws of many samples
   whichdist_samps <- reactive({
+    set.seed(1)
     choice <- switch(input$dist,
                      Normal = rnorm(input$ndraws * input$nsamps, input$mu, input$sd),
                      Gamma = rgamma(input$ndraws * input$nsamps, input$shp, input$rte),

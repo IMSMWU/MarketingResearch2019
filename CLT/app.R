@@ -3,8 +3,20 @@ library(shiny)
 # 1. Set population density + params
 # 2. Set number of draws
 # 3. Set sample size
-# 4. Plot distribution of means + some diagnostics
+# 4. Plot distribution of single sample
+# 5. Plot distribution of sample mean
+# 5.1 Optional: plot theoretical distribution 
+# 5.1.1 Optional: plot confidence intervals
+#################
+# Instructions: #
+#################
 
+# To add a new distribution:
+## a) Add dist. to user input
+## b) Add conditional panel with dist. parameters
+## c) Calculate population moments
+## d) Define the random sample
+## e) Add output for population mean (has to be added to the conditional panel)
 library(ggplot2)
 
 ui <- fluidPage(
@@ -14,11 +26,11 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      # User input
+      # a) User input
       selectInput('dist', "Population Distribution", choices = 
                     c(Normal = "Normal", Gamma = "Gamma", Uniform = "Uniform")),
       h3("Population Parameters", style="color:black"),
-      # Parameters conditional on choice of distribution
+      # b) Parameters conditional on choice of distribution
       conditionalPanel("input.dist == 'Normal'",
                        p("e.g. Net profit of a marketing campaign"),
                        sliderInput('mu', "Mean", min = -10, 10, 0, step = .1),
@@ -60,7 +72,7 @@ ui <- fluidPage(
 server <- function(input, output) {
   bins <- 50
   
-  # Get distribution moments conditional on choice of distribution
+  # c) Get distribution moments conditional on choice of distribution
   moments <- reactive({
     gmu <- input$shp / input$rte
     gsd <- sqrt(input$shp / (input$rte)^2)
@@ -74,7 +86,7 @@ server <- function(input, output) {
     return(mom)
   })
 
-  # Get function for random draws of many samples
+  # d) Get function for random draws of many samples
   whichdist_samps <- reactive({
     choice <- switch(input$dist,
                      Normal = rnorm(input$ndraws * input$nsamps, input$mu, input$sd),
@@ -83,6 +95,7 @@ server <- function(input, output) {
     )
   })
   
+  # Plot histogram of characteristic sample
   output$distPlot <- renderPlot({
     plt_dat <- data.frame(x = whichdist_samps()[1:input$ndraws])
     smean <- mean(plt_dat$x)
@@ -95,6 +108,7 @@ server <- function(input, output) {
     suppressMessages(suppressWarnings(print(plt)))
   })
   
+  # Plot histogram of sample means
   output$distMean <- renderPlot({
     samples <- matrix(whichdist_samps(), input$nsamps, input$ndraws)
     iota <- matrix(1, input$ndraws, 1)
@@ -107,6 +121,7 @@ server <- function(input, output) {
       ggtitle("Sampling Distribution of the Mean") +
       theme_bw()
     draw_overlay <- input$overlay
+    # Overlay theoretical Normal
     if(draw_overlay){
       params <- moments()
       N <- input$ndraws
@@ -117,6 +132,7 @@ server <- function(input, output) {
         stat_function(fun = dnorm, args = list(mu, se_mean), geom = "line", color = "red")
       
       draw_ci <- input$ci
+      # Overlay CI (needs normal)
       if(draw_ci){
         min <- mu - 4 * se_mean
         max <- mu + 4 * se_mean
@@ -132,6 +148,7 @@ server <- function(input, output) {
     suppressMessages(suppressWarnings(print(plt)))
   })
   
+  # e) Get Population mean for given distribution
   output$mu_norm <- renderText({
     paste("Population Mean: ", input$mu)
   })

@@ -10,7 +10,7 @@ ui <- fluidPage(
       h3("Sample Selection", style = "color:darkgreen"),
       sliderInput("ndraws",
                   "Sample Size",
-                  min = 1,
+                  min = 2,
                   max = 1000,
                   value = 500),
      
@@ -20,6 +20,8 @@ ui <- fluidPage(
       sliderInput("ci",
                   "Confidence Interval (in %)",
                   min = 0, max = 100, step = 1, value = 95),
+      withMathJax(),
+      uiOutput("alpha"),
       checkboxInput('var_known', "Population Variance known?"),
       checkboxInput('show_pop', "Show Population?"),
       conditionalPanel("input.show_pop",
@@ -70,42 +72,71 @@ server <- function(input, output) {
         geom_vline(xintercept = mean, color = "black")
     }
 
-    #suppressMessages(suppressWarnings(
+    suppressMessages(suppressWarnings(
     print(plt)
-    #))
+    ))
   })
   
   output$confPlot <- renderPlot({
-    pop_var_known <- input$var_known
     dat <- as.vector(sample())
-    if(pop_var_known){
-      gsd <- as.numeric(sqrt(input$shp / (input$rte)^2))
-      se_mean <- as.numeric(gsd / sqrt(input$ndraws))
-      mu <- as.numeric(input$h0)
-      p1 <- (1 - (input$ci/100))/2
-      p2 <- 1-p1
-      min <- mu - 4 * se_mean
-      max <- mu + 4 * se_mean
-      smean <- as.numeric(mean(dat))
-      print(smean)
-      plt <- ggplot(data.frame(x = smean)) + 
-        geom_vline(xintercept = smean, color = 'darkgreen') +
-        xlim(c(mu-8*se_mean, mu + 8*se_mean)) + 
-        stat_function(fun = dnorm, args = list(mu, se_mean), geom = "line", color = "blue") +
-        stat_function(fun = dnorm, args = list(mu, se_mean), xlim = c(min, qnorm(p1, mean = mu, sd = se_mean)), geom = "area",
-                      color = 'blue', fill = 'blue', alpha = 0.6) +
-        stat_function(fun = dnorm, args = list(mu, se_mean), xlim = c(max, qnorm(p2, mean = mu, sd = se_mean)), geom = "area",
-                      color = 'blue', fill = 'blue', alpha = 0.6) +
-        
-        ggtitle("Implied Confidence Interval of the H0") +
-        theme_bw()
-      
+    gsd <- as.numeric(sqrt(input$shp / (input$rte)^2))
+    se_mean <- as.numeric(gsd / sqrt(input$ndraws))
+    se_mean_unk <- as.numeric(sd(dat) / sqrt(input$ndraws))
+    mu <- as.numeric(input$h0)
+    p1 <- (1 - (input$ci/100))/2
+    p2 <- 1-p1
+    min <- -4 * se_mean
+    min_u <- -8
+    max <-  4 * se_mean
+    max_u <- 8
+    if(input$ndraws == 2){
+      min_u <- -15
+      max_u <- abs(min_u)
     }
-    #suppressMessages(suppressWarnings(
+    smean <- as.numeric(mean(dat))
+    df <- as.numeric(input$ndraws - 1)
+    plt <- ggplot(data.frame(x = smean)) +
+      ggtitle("Implied Confidence Interval of the H0") +
+      theme_bw()
+    var_known <- input$var_known
+    if(var_known){
+      plt <- plt +
+        xlim(c(min_u, max_u)) +
+        labs(subtitle = "Difference to H0 - standard normal distribution") +
+        geom_vline(xintercept = (smean - mu)/se_mean, color = 'darkgreen') +
+        stat_function(fun = dnorm, args = list(0, 1), geom = "line", color = "blue") +
+        stat_function(fun = dnorm, args = list(0, 1), xlim = c(min_u, qnorm(p1, mean = 0, sd = 1)), geom = "area",
+                      color = 'blue', fill = 'blue', alpha = 0.6) +
+        stat_function(fun = dnorm, args = list(0, 1), xlim = c(max_u, qnorm(p2, mean = 0, sd = 1)), geom = "area",
+                      color = 'blue', fill = 'blue', alpha = 0.6) 
+    }else{
+      plt <- plt +
+        xlim(c(min_u, max_u)) +      
+        labs(subtitle = "Difference to H0 - t-distribution") +
+        geom_vline(xintercept = (smean - mu)/se_mean_unk, color = 'darkgreen') +
+        stat_function(fun = dt, args = list(df), geom = "line", color = "blue") +
+        stat_function(fun = dt, args = list(df), geom = "area", xlim = c(min_u, qt(p1, df = df)), 
+                      color = "blue", fill = 'blue', alpha = 0.6) +
+        stat_function(fun = dt, args = list(df), geom = "area", xlim = c(max_u, qt(p2, df = df)), 
+                      color = "blue", fill = 'blue', alpha = 0.6)
+    }
+    show_population <- input$show_pop
+    if(show_population){
+     plt <- plt +
+       geom_vline(xintercept = input$shp/input$rte - mu, color = 'black')
+    }
+    
+    
+    
+    suppressMessages(suppressWarnings(
     print(plt)
-    #))
+    ))
   })
   
+  output$alpha <- renderUI({
+    txt <- paste0("$$\\text{Significance Level (}\\alpha\\text{): }", ((1 - (input$ci/100))), "$$")
+    withMathJax(helpText(txt))
+  })
   
   output$mu_gamma <- renderText({
     mean <- input$shp/input$rte

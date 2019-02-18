@@ -7,7 +7,7 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      h3("Sample Selection", style = "color:darkgreen"),
+      h3("Sample", style = "color:darkgreen"),
       sliderInput("ndraws",
                   "Sample Size",
                   min = 2,
@@ -16,13 +16,20 @@ ui <- fluidPage(
      
       h3("Null Hypothesis (H0)", style = "color:blue"),
       sliderInput('h0', "Average listening time of WU students is equal to",
-                  min = 0, max = 2, step = 0.01, value = 0.7),
+                  min = 0.6, max = 0.8, step = 0.01, value = 0.7),
       sliderInput("ci",
                   "Confidence Interval (in %)",
                   min = 0, max = 100, step = 1, value = 95),
       withMathJax(),
       uiOutput("alpha"),
       checkboxInput('var_known', "Population Variance known?"),
+      conditionalPanel("input.var_known",
+                       withMathJax(helpText(("$$Z_{CAL} = {\\bar x - H0 \\over \\sigma / \\sqrt{n}}$$"))),
+                       uiOutput("z_stat")),
+      conditionalPanel("!input.var_known", 
+                       withMathJax(helpText(("$$t_{CAL} = {\\bar x - H0 \\over s / \\sqrt{n}}$$"))),
+                       uiOutput("t_stat")
+                       ),
       checkboxInput('show_pop', "Show Population?"),
       conditionalPanel("input.show_pop",
                        h3("Population Parameters", style = "color:black"),
@@ -60,9 +67,10 @@ server <- function(input, output) {
     mean <- input$shp/input$rte
     plt_dat <- data.frame(x = sample())
     smean <- mean(plt_dat$x)
+    ssd <- sd(plt_dat$x)
     plt <- ggplot(plt_dat, aes(x = x), color = 'darkgreen') +
       geom_histogram(bins = bins, mapping = aes(y = ..density..), fill = 'darkgreen') +
-      labs(y = 'Density', x = 'Value', subtitle = sprintf("Sample Mean: %.3f", smean)) +
+      labs(y = 'Density', x = 'Value', subtitle = sprintf("Sample Mean: %.3f; Sample SD: %.3f", smean, ssd)) +
       geom_vline(xintercept = input$h0, color = "blue") + 
       ggtitle("Music Listening Times of WU Students (avg. hours/day)") +
       theme_bw()
@@ -97,7 +105,8 @@ server <- function(input, output) {
     df <- as.numeric(input$ndraws - 1)
     plt <- ggplot(data.frame(x = smean)) +
       ggtitle("Implied Confidence Interval of the H0") +
-      theme_bw()
+      theme_bw() +
+      labs(x = "Difference to H0")
     var_known <- input$var_known
     if(var_known){
       plt <- plt +
@@ -125,9 +134,6 @@ server <- function(input, output) {
      plt <- plt +
        geom_vline(xintercept = input$shp/input$rte - mu, color = 'black')
     }
-    
-    
-    
     suppressMessages(suppressWarnings(
     print(plt)
     ))
@@ -138,9 +144,41 @@ server <- function(input, output) {
     withMathJax(helpText(txt))
   })
   
+  output$t_stat <- renderUI({
+    dat <- as.vector(sample())
+    xbar <- mean(dat)
+    s <- sd(dat)
+    n <- length(dat)
+    se <- s / sqrt(n)
+    tstat <- (xbar - input$h0) / se 
+    p1 <- (1 - (input$ci/100))/2
+    p2 <- 1-p1
+    df <- as.numeric(input$ndraws - 1)
+    critl <- qt(p1, df)
+    crith <- qt(p2, df)
+    txt <- sprintf("$$t_{CAL} = {%.3f - %.3f \\over %.3f / \\sqrt{%d}}  =  %.3f \\\\ \\text{Critical Values:} %.3f,\\ %.3f$$", xbar, input$h0, s, n, tstat, critl, crith)
+    withMathJax(helpText(txt))
+  })
+  
+  output$z_stat <- renderUI({
+    dat <- as.vector(sample())
+    xbar <- mean(dat)
+    n <- length(dat)
+    sig <- sqrt(input$shp/input$rte^2)
+    sigx <- sig/sqrt(n)
+    zstat <- (xbar - input$h0) /  sigx
+    p1 <- (1 - (input$ci/100))/2
+    p2 <- 1-p1
+    critl <- qnorm(p1)
+    crith <- qnorm(p2)
+    txt <- sprintf("$$Z_{CAL} = {%.3f - %.3f \\over %.3f / \\sqrt{%d}}  =  %.3f \\\\ \\text{Critical Values:} %.3f,\\ %.3f$$", xbar, input$h0, sig, n, zstat, critl, crith)
+    withMathJax(helpText(txt))
+  })
+  
   output$mu_gamma <- renderText({
     mean <- input$shp/input$rte
-    sprintf("Population Mean: %.3f", mean)
+    sig <- sqrt(input$shp/input$rte^2)
+    sprintf("Population Mean: %.3f; Population SD: %.3f", mean, sig)
   })
 }
 

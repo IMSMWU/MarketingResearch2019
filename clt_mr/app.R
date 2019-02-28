@@ -33,7 +33,7 @@ ui <- fluidPage(
     sidebarPanel(
       # a) User input
       selectInput('dist', "Population Distribution", choices = 
-                    c(Normal = "Normal", Gamma = "Gamma", Uniform = "Uniform")),
+                    c(Normal = "Normal", Gamma = "Gamma", Uniform = "Uniform", Binomial = "Binomial")),
       h3("Population Parameters", style="color:black"),
       # b) Parameters conditional on choice of distribution
       conditionalPanel("input.dist == 'Normal'",
@@ -50,6 +50,10 @@ ui <- fluidPage(
                        p("Equally likely events in a certain range"),
                        sliderInput('area', "Interval", min = -10, 10, c(-5, 5), step = 0.1),
                        textOutput("mu_uniform")),
+      conditionalPanel("input.dist ==  'Binomial'",
+                       p("E.g. Number of heads when tossing coins"),
+                       sliderInput('prob', "Probability of getting heads", min = 0, 1, 0.5, step = 0.05),
+                       textOutput("mu_binomial")),
       # Global sample characteristics
       h3("Sample Selection", style="color:darkgreen"),
       sliderInput('ndraws', 'Sample Size', min = 2, 1000, 500),
@@ -83,10 +87,12 @@ server <- function(input, output) {
     gsd <- sqrt(input$shp / (input$rte)^2)
     umu <- sum(input$area)/2
     usd <- sqrt(1/12 * (diff(input$area))^2)
+    bsd <- sqrt(input$prob * (1- input$prob))
     mom <- switch(input$dist,
                   Normal = list('mu' = input$mu, 'sd' = input$sd),
                   Gamma = list('mu' = gmu, 'sd' = gsd),
-                  Uniform = list('mu' = umu, 'sd' = usd)
+                  Uniform = list('mu' = umu, 'sd' = usd),
+                  Binomial = list('mu' = input$prob, 'sd' = bsd)
     )
     return(mom)
   })
@@ -97,7 +103,8 @@ server <- function(input, output) {
     choice <- switch(input$dist,
                      Normal = rnorm(input$ndraws * input$nsamps, input$mu, input$sd),
                      Gamma = rgamma(input$ndraws * input$nsamps, input$shp, input$rte),
-                     Uniform = runif(input$ndraws * input$nsamps, input$area[1], input$area[2])
+                     Uniform = runif(input$ndraws * input$nsamps, input$area[1], input$area[2]),
+                     Binomial = rbinom(input$ndraws * input$nsamps, 1, input$prob)
     )
   })
   
@@ -167,6 +174,10 @@ server <- function(input, output) {
   output$mu_uniform <- renderText({
     mean <- sum(input$area)/2
     sprintf("Population Mean: %.2f", mean)
+  })
+  
+  output$mu_binomial <- renderText({
+    sprintf("Population Mean: %.1f", input$prob)
   })
 }
 
